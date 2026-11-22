@@ -10,7 +10,9 @@ export interface ColonyContextValue {
   togglePaused: () => void;
   restart: () => void;
   assignDwarf: (id: string, assignment: JobType) => void;
+  toggleTool: (id: string) => void;
   craftTool: () => void;
+  craftWeapon: () => void;
   sendExpedition: (dwarfId: string, destination: string) => Promise<void>;
 }
 

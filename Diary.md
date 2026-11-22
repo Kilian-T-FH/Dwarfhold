@@ -27,6 +27,7 @@ available. Added a GameOver function for a situation where no dwarves remain.
 ## AI Usage
 Used Claude plan mode to help analyze the structure of the software, to find possible solutions not priorly
 known or thought of. Bug-fixing and finding inconsistencies in the code.
+Also used it for visual design.
 
 ## Final Reflection
 ### TODO
