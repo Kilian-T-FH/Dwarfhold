@@ -3,7 +3,7 @@ import { ResourceBar } from "../components/ResourceBar";
 import { useColony } from "../state/ColonyContext";
 
 export function Layout() {
-  const { colony, paused, togglePaused } = useColony();
+  const { colony, paused, gameOver, togglePaused, restart } = useColony();
 
   return (
     <main>
@@ -27,7 +27,7 @@ export function Layout() {
         <div className="day">
           <small>DEEP DAY</small>
           <strong>{colony.day}</strong>
-          <button onClick={togglePaused}>
+          <button onClick={togglePaused} disabled={gameOver}>
             {paused ? "Wake the hold" : "Pause"}
           </button>
         </div>
@@ -46,8 +46,21 @@ export function Layout() {
       <footer>
         <span>🔥 Forge: burning</span>
         <span>Next deep day in ~8 seconds</span>
-        <span>{paused ? "The hold is resting" : "⚙ Simulation active"}</span>
+        <span>
+          {gameOver
+            ? "☠ Stonehome has fallen"
+            : paused
+              ? "The hold is resting"
+              : "⚙ Simulation active"}
+        </span>
       </footer>
+
+      {gameOver && (
+        <div className="snackbar" role="alert">
+          <span>Game over: every dwarf has starved. Stonehome has fallen.</span>
+          <button onClick={restart}>Restart</button>
+        </div>
+      )}
     </main>
   );
 }
