@@ -11,3 +11,13 @@
 .tool-toggle input:focus-visible{outline:1px solid #c18b3f;outline-offset:2px}
 .tool-toggle:has(input:checked){color:#d8c8ae}
 .tool-toggle:has(input:disabled){opacity:.5;cursor:default}
+.forge-dwarves{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:10px;padding:0}
+.forge-dwarves .dwarf,.forge-dwarves .dwarf:last-child{flex:1 1 240px;background:#191510;border:1px solid #4e3d2a;box-shadow:0 8px 24px #0005}
+.forge-dwarves .dwarf{cursor:pointer}
+.forge-dwarves .dwarf.away{cursor:not-allowed}
+.forge-dwarves input{position:absolute;opacity:0;pointer-events:none}
+.forge-dwarves .dwarf.selected,.forge-dwarves .dwarf.selected:last-child{border-color:#c18b3f;background:#241c13;box-shadow:inset 0 0 0 1px #c18b3f,0 8px 24px #0005}
+.forge-dwarves .dwarf:has(input:focus-visible){outline:1px solid #c18b3f;outline-offset:2px}
+.forge .forge-smith{margin-top:6px;color:#d8c8ae}
+.forge button:disabled{opacity:.45;cursor:not-allowed}
+.portrait i.crafting{background:#c18b3f}

@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { Activity, ColonyState, JobType } from "../types";
+import type {Activity, ColonyState, JobType} from "../types";
 
 export interface ColonyContextValue {
   colony: ColonyState;
@@ -11,8 +11,8 @@ export interface ColonyContextValue {
   restart: () => void;
   assignDwarf: (id: string, assignment: JobType) => void;
   toggleTool: (id: string) => void;
-  craftTool: () => void;
-  craftWeapon: () => void;
+  craftTool: (smithId: string) => void;
+  craftWeapon: (smithId: string) => void;
   sendExpedition: (dwarfId: string, destination: string) => Promise<void>;
 }
 

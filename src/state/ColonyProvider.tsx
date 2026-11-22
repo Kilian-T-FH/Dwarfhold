@@ -89,17 +89,29 @@ export function ColonyProvider({children}: { children: ReactNode }) {
         setExpeditionPending(false);
     }
 
-    // Dwarves only leave the roster by starving, so report anyone who disappeared.
+    // Compare with the previous roster: dwarves only disappear by starving,
+    // and a smith whose job was cleared has finished forging.
     const previousDwarves = useRef(colony.dwarves);
     useEffect(() => {
         const starved = previousDwarves.current.filter(
             (dwarf) => !colony.dwarves.some((item) => item.id === dwarf.id),
         );
+        const finished = previousDwarves.current.filter(
+            (dwarf) =>
+                dwarf.crafting &&
+                !colony.dwarves.find((item) => item.id === dwarf.id)?.crafting,
+        );
         previousDwarves.current = colony.dwarves;
-        if (starved.length === 0) return;
+        if (starved.length === 0 && finished.length === 0) return;
 
         setActivities((current) =>
             [
+                ...finished.map((dwarf) => ({
+                    id: crypto.randomUUID(),
+                    day: colony.day,
+                    message: `${dwarf.name} finished forging a ${dwarf.crafting === "tools" ? "tool" : "weapon"}.`,
+                    tone: "good" as const,
+                })),
                 ...starved.map((dwarf) => ({
                     id: crypto.randomUUID(),
                     day: colony.day,
@@ -158,7 +170,9 @@ export function ColonyProvider({children}: { children: ReactNode }) {
         });
     }
 
-    function craftTool() {
+    function craftTool(smithId: string) {
+        const smith = colony.dwarves.find((dwarf) => dwarf.id === smithId);
+        if (!smith || smith.status === "expedition" || smith.status === "crafting") return;
         if (colony.resources.wood < 3) {
             setActivities((current) => [
                 {
@@ -191,23 +205,29 @@ export function ColonyProvider({children}: { children: ReactNode }) {
                 ...current.resources,
                 wood: current.resources.wood - 3,
                 stone: current.resources.stone - 2,
-                tools: current.resources.tools + 1,
             },
+            // The tool is delivered by advanceDay at the end of the day.
+            dwarves: current.dwarves.map((dwarf) =>
+                dwarf.id === smithId
+                    ? {...dwarf, status: "crafting" as const, crafting: "tools" as const}
+                    : dwarf,
+            ),
         }));
         setActivities((current) =>
             [
                 {
                     id: crypto.randomUUID(),
                     day: colony.day,
-                    message: "A sturdy iron tool joins the stores.",
-                    tone: "good" as const,
+                    message: `${smith.name} starts forging a tool. Ready at dawn.`,
                 },
                 ...current,
             ].slice(0, 6),
         );
     }
 
-    function craftWeapon(){
+    function craftWeapon(smithId: string) {
+        const smith = colony.dwarves.find((dwarf) => dwarf.id === smithId);
+        if (!smith || smith.status === "expedition" || smith.status === "crafting") return;
         if (colony.resources.wood < 2) {
             setActivities((current) => [
                 {
@@ -232,28 +252,30 @@ export function ColonyProvider({children}: { children: ReactNode }) {
             ]);
             return;
         }
-
         setColony((current) => ({
             ...current,
             resources: {
                 ...current.resources,
                 wood: current.resources.wood - 2,
                 stone: current.resources.stone - 3,
-                weapons: current.resources.weapons + 1,
             },
+            // The weapon is delivered by advanceDay at the end of the day.
+            dwarves: current.dwarves.map((dwarf) =>
+                dwarf.id === smithId
+                    ? {...dwarf, status: "crafting" as const, crafting: "weapons" as const}
+                    : dwarf,
+            ),
         }));
         setActivities((current) =>
             [
                 {
                     id: crypto.randomUUID(),
                     day: colony.day,
-                    message: "A sturdy iron weapon joins the stores.",
-                    tone: "good" as const,
+                    message: `${smith.name} starts forging a weapon. Ready at dawn.`,
                 },
                 ...current,
             ].slice(0, 6),
         );
-        console.log(colony.resources.weapons);
     }
 
     async function sendExpedition(dwarfId: string, destination: string) {
@@ -287,14 +309,6 @@ export function ColonyProvider({children}: { children: ReactNode }) {
                     }),
                     current.resources,
                 ),
-                /*        dwarves: current.dwarves.map((item) =>
-                          item.id === dwarf.id
-                            ? {
-                                ...item,
-                                status: item.assignment ? "working" : "idle",
-                              }
-                            : item,
-                        ),*/
             }));
             setActivities((current) =>
                 [
@@ -323,7 +337,6 @@ export function ColonyProvider({children}: { children: ReactNode }) {
                 ].slice(0, 6),
             );
         }
-        //setExpeditionPending(false);
     }
 
 

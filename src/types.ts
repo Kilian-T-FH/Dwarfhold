@@ -1,6 +1,8 @@
 export type ResourceKey = "wood" | "stone" | "food" | "tools";
 export type JobType = "woodcutting" | "mining" | "farming" | null;
-export type DwarfStatus = "idle" | "working" | "expedition";
+export type DwarfStatus = "idle" | "working" | "expedition"| "crafting";
+// Matches the Resources keys the forge delivers into.
+export type CraftItem = "tools" | "weapons";
 export interface Resources { wood: number; stone: number; food: number; tools: number; weapons: number}
 
 export interface Dwarf { 
@@ -11,7 +13,8 @@ export interface Dwarf {
      assignment: JobType; 
      status: DwarfStatus; 
      specialty?: Exclude<JobType, null>;
-     tool: boolean
+     tool: boolean;
+     crafting?: CraftItem
 }
 
 export interface ColonyState { 

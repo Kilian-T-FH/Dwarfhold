@@ -8,13 +8,18 @@ export function advanceDay(state: ColonyState): ColonyState {
     const resources = {...state.resources};
 
     state.dwarves.forEach((dwarf) => {
-        if (!dwarf.assignment || dwarf.status === "expedition") return;
+        if (!dwarf.assignment || dwarf.status === "expedition" || dwarf.status === "crafting") return;
         const output = production[dwarf.assignment];
 
         Object.entries(output).forEach(([resource, amount]) => {
             resources[resource as keyof Resources] += dwarf.tool ? amount+1 : amount ?? 0;
         });
 
+    });
+
+    // Forging finishes at the end of the day, before meals, so the item arrives even if the smith starves.
+    state.dwarves.forEach((dwarf) => {
+        if (dwarf.crafting) resources[dwarf.crafting] += 1;
     });
 
     // Meals: every dwarf eats one food. Anyone who can't be fed leaves Stonehome.
@@ -24,10 +29,10 @@ export function advanceDay(state: ColonyState): ColonyState {
     // Deterministic: meals go out in roster order, so the last `shortfall` dwarves go unfed.
     const remaining = state.dwarves.slice(0, state.dwarves.length - shortfall);
 
-    // Travellers return at the end of the day and resume their assignment.
+
     const dwarves = remaining.map((dwarf) =>
-        dwarf.status === "expedition"
-            ? {...dwarf, status: dwarf.assignment ? "working" as const : "idle" as const}
+        dwarf.status === "expedition" || dwarf.status === "crafting"
+            ? {...dwarf, status: dwarf.assignment ? "working" as const : "idle" as const, crafting: undefined}
             : dwarf,
     );
 
