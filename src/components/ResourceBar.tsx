@@ -1,10 +1,11 @@
 import type { Resources } from "../types";
 
 const details = {
-  wood: ["🪵", "Timber"],
-  stone: ["🪨", "Stone"],
+  wood: ["🌲", "Timber"],
+  stone: ["⛏️", "Stone"],
   food: ["🍄", "Rations"],
   tools: ["⚒️", "Tools"],
+  weapons: ["⚔️", "Weapons"]
 } as const;
 
 export function ResourceBar({ resources }: { resources: Resources }) {
