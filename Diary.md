@@ -66,7 +66,7 @@ requests never trigger a raid. The result shows in a raid report panel and the c
 ## AI Usage
 Used Claude plan mode to help analyze the structure of the software, to find possible solutions not priorly
 known or thought of. Bug-fixing and finding inconsistencies in the code.
-Also used it for visual design.
+Also used it for visual design. Additionally used claude for debugging, quality control and code formatting/refactoring.
 
 ## Final Reflection
 ### TODO
