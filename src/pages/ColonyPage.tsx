@@ -1,143 +1,170 @@
-import { useState } from "react";
-import { Chronicle } from "../components/Chronicle";
-import { DwarfRoster } from "../components/DwarfRoster";
-import { jobLabel, production } from "../simulation";
-import { useColony } from "../state/ColonyContext";
-import type { ResourceKey } from "../types";
+import {useState} from "react";
+import {Chronicle} from "../components/Chronicle";
+import {ResidentRoster} from "../components/ResidentRoster";
+import {
+    DESTINATIONS,
+    destinationLabel,
+    FOOD_PER_RESIDENT,
+    JOB_LABEL,
+    JOB_RESOURCE,
+    JOBS,
+    RAID_DEFENSE_COST,
+    RAID_DEFENSE_THRESHOLD,
+    RECRUIT_DESTINATION,
+} from "../game/config";
+import {describe, isAvailable} from "../game/rules";
+import {useColony} from "../state/ColonyContext";
+import type {DestinationId} from "../types";
+
+const JOB_ICON = {woodcutting: "🌲", mining: "⛏️", farming: "🍄"} as const;
 
 export function ColonyPage() {
-  const {
-    colony,
-    activities,
-    expeditionPending,
-    assignDwarf,
-    toggleTool,
-    sendExpedition,
-  } = useColony();
-  const [destination, setDestination] = useState("crystal-cave");
-  const [expeditionDwarf, setExpeditionDwarf] = useState("dwarf-3");
+    const {colony, forecast, gameOver, assign, toggleTool, sendExpedition, dismissRaid} = useColony();
+    const [destination, setDestination] = useState<DestinationId>("crystal-cave");
+    const [scoutId, setScoutId] = useState<string>("");
 
-  const dailyOutput = colony.dwarves.reduce<Record<ResourceKey, number>>(
-    (total, dwarf) => {
-      if (dwarf.assignment) {
-        const output = production[dwarf.assignment];
-        Object.entries(output).forEach(([resource, amount]) => {
-          total[resource as ResourceKey] += amount ?? 0;
-        });
-      }
-      return total;
-    },
-    {
-      wood: 0,
-      stone: 0,
-      food: -colony.dwarves.length,
-      tools: 0,
-    },
-  );
+    const availableScouts = colony.residents.filter(isAvailable);
+    // Fall back to the first available resident if the chosen one became busy.
+    const scout = availableScouts.find((resident) => resident.id === scoutId) ?? availableScouts.at(0);
+    const travellers = colony.residents.filter((resident) => resident.task?.kind === "expedition");
+    const selectedDestination = DESTINATIONS.find((item) => item.id === destination);
+    const raid = colony.lastRaid;
 
-  return (
-    <div className="dashboard">
-      <DwarfRoster
-        dwarves={colony.dwarves}
-        toolsAvailable={colony.resources.tools}
-        onAssign={assignDwarf}
-        onToggleTool={toggleTool}
-      />
+    return (
+        <div className="dashboard">
+            <ResidentRoster
+                residents={colony.residents}
+                toolsAvailable={colony.resources.tools}
+                onAssign={assign}
+                onToggleTool={toggleTool}
+            />
 
-      <section className="center-stack">
-        <section className="panel production">
-          <header>
-            <div>
-              <small>SHIFT LEDGER</small>
-              <h2>Daily Production</h2>
-            </div>
-            <span>updates each day</span>
-          </header>
+            <section className="center-stack">
+                {raid && (
+                    <section className={`panel raid-report ${raid.outcome}`} role="status">
+                        <header>
+                            <div>
+                                <small>RAID ON DAY {raid.day}</small>
+                                <h2>{raid.outcome === "defended" ? "Stonehome held the gate" : "Stonehome was looted"}</h2>
+                            </div>
+                            <button onClick={dismissRaid}>Dismiss</button>
+                        </header>
+                        <p>
+                            A {raid.attackers} followed the scout home. Stonehome had {raid.weaponsBefore} weapon(s);
+                            {" "}{RAID_DEFENSE_THRESHOLD} are needed to defend.
+                        </p>
+                        <p>
+                            {raid.outcome === "defended"
+                                ? `The attackers were driven off. ${raid.weaponsLost} weapon broke in the fight.`
+                                : `They carried off ${describe(raid.loot) || "nothing worth taking"}.`}
+                        </p>
+                    </section>
+                )}
 
-          <div className="job-grid">
-            {(["woodcutting", "mining", "farming"] as const).map((job) => (
-              <article key={job}>
-                <b>
-                  {job === "woodcutting"
-                    ? "🌲"
-                    : job === "mining"
-                      ? "⛏️"
-                      : "🍄"}
-                </b>
-                <h3>{jobLabel(job)}</h3>
-                <p>
-                  {
-                    colony.dwarves.filter(
-                      (dwarf) => dwarf.assignment === job,
-                    ).length
-                  }{" "}
-                  assigned
-                </p>
-                <strong>+{Object.values(production[job])[0]} / day</strong>
-              </article>
-            ))}
-          </div>
+                <section className="panel production">
+                    <header>
+                        <div>
+                            <small>SHIFT LEDGER</small>
+                            <h2>Tonight's Production</h2>
+                        </div>
+                        <span>busy residents and tools included</span>
+                    </header>
 
-          <div className="net-line">
-            <span>NET FOOD AFTER MEALS</span>
-            <strong className={dailyOutput.food >= 0 ? "gain" : "loss"}>
-              {dailyOutput.food >= 0 ? "+" : ""}
-              {dailyOutput.food}
-            </strong>
-          </div>
-        </section>
-      </section>
+                    <div className="job-grid">
+                        {JOBS.map((job) => (
+                            <article key={job}>
+                                <b>{JOB_ICON[job]}</b>
+                                <h3>{JOB_LABEL[job]}</h3>
+                                <p>
+                                    {colony.residents.filter((resident) => resident.assignment === job && isAvailable(resident)).length}
+                                    {" "}working
+                                </p>
+                                <strong>+{forecast.production[JOB_RESOURCE[job]]} {JOB_RESOURCE[job]}</strong>
+                            </article>
+                        ))}
+                    </div>
 
-      <aside className="side-stack">
-        <section className="panel expedition">
-          <header>
-            <div>
-              <small>BEYOND THE GATE</small>
-              <h2>Expedition</h2>
-            </div>
-            <b>🗺️</b>
-          </header>
+                    <div className="net-line">
+                        <span>NET FOOD AFTER MEALS ({forecast.meals} eaten)</span>
+                        <strong className={forecast.netFood >= 0 ? "gain" : "loss"}>
+                            {forecast.netFood >= 0 ? "+" : ""}{forecast.netFood}
+                        </strong>
+                    </div>
+                    <p className="rule-note">
+                        Each resident at home eats {FOOD_PER_RESIDENT} food at dusk; travellers live off their packs.
+                        If the stores run dry, unfed residents leave Stonehome, last in the roster first,
+                        and return their tool to the stores.
+                    </p>
+                    {forecast.hungry.length > 0 && !gameOver && (
+                        <p className="rule-note danger" role="alert">
+                            Not enough food tonight: {forecast.hungry.map((resident) => resident.name).join(", ")} will leave
+                            at dusk unless more food is farmed.
+                        </p>
+                    )}
+                </section>
+            </section>
 
-          <label>
-            Scout
-            <select
-              value={expeditionDwarf}
-              onChange={(event) => setExpeditionDwarf(event.target.value)}
-            >
-              {colony.dwarves.map((dwarf) => (
-                <option key={dwarf.id} value={dwarf.id}>
-                  {dwarf.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <aside className="side-stack">
+                <section className="panel expedition">
+                    <header>
+                        <div>
+                            <small>BEYOND THE GATE</small>
+                            <h2>Expedition</h2>
+                        </div>
+                        <b>🗺️</b>
+                    </header>
 
-          <label>
-            Destination
-            <select
-              value={destination}
-              onChange={(event) => setDestination(event.target.value)}
-            >
-              <option value="crystal-cave">Crystal Cave</option>
-              <option value="old-mine">The Old Mine</option>
-              <option value="blocked-pass">Blocked Pass</option>
-            </select>
-          </label>
+                    <label>
+                        Scout
+                        <select
+                            value={scout?.id ?? ""}
+                            disabled={!scout}
+                            onChange={(event) => setScoutId(event.target.value)}
+                        >
+                            {availableScouts.length === 0 && <option value="">Nobody is free</option>}
+                            {availableScouts.map((resident) => (
+                                <option key={resident.id} value={resident.id}>{resident.name}</option>
+                            ))}
+                        </select>
+                    </label>
 
-          <button
-            disabled={expeditionPending}
-            onClick={() => sendExpedition(expeditionDwarf, destination)}
-          >
-            {expeditionPending ? "Beyond the gate…" : "Send expedition"}
-          </button>
-          <p>
-            A result returns in one request. The selected dwarf is unavailable
-            while travelling.
-          </p>
-        </section>
+                    <label>
+                        Destination
+                        <select value={destination} onChange={(event) => setDestination(event.target.value as DestinationId)}>
+                            {DESTINATIONS.map((item) => (
+                                <option key={item.id} value={item.id}>{item.label}</option>
+                            ))}
+                        </select>
+                    </label>
+                    {selectedDestination && <p className="destination-hint">{selectedDestination.hint}</p>}
 
-        <Chronicle activities={activities} />
-      </aside>
-    </div>
-  );
+                    <button disabled={!scout || gameOver} onClick={() => scout && sendExpedition(scout.id, destination)}>
+                        {scout ? `Send ${scout.name.split(" ")[0]}` : "Nobody is free"}
+                    </button>
+
+                    {travellers.length > 0 && (
+                        <ul className="travellers">
+                            {travellers.map((resident) => resident.task?.kind === "expedition" && (
+                                <li key={resident.id}>
+                                    {resident.name} → {destinationLabel(resident.task.destination)} (left day {resident.task.departedDay})
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                    <p>
+                        Travellers cannot work, forge or change tools until they return, and they keep their tool on the road.
+                        A failed trip brings them home with nothing. If the page is reloaded mid-trip, they return empty-handed.
+                    </p>
+                    <p>
+                        {colony.flags.goblinJoined
+                            ? "A goblin has already joined from the Old Mine."
+                            : `The first successful trip to ${destinationLabel(RECRUIT_DESTINATION)} may bring a new resident.`}
+                        {" "}Raids: {RAID_DEFENSE_THRESHOLD}+ weapons defend (costs {RAID_DEFENSE_COST}), otherwise raiders take half of the stores.
+                    </p>
+                </section>
+
+                <Chronicle activities={colony.chronicle}/>
+            </aside>
+        </div>
+    );
 }

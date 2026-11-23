@@ -1,359 +1,74 @@
-import {useEffect, useRef, useState, type ReactNode} from "react";
+import {useCallback, useEffect, useMemo, useRef, useState, type ReactNode} from "react";
 import {beginExpedition} from "../api";
-import {advanceDay, jobLabel} from "../simulation";
-import type {
-    Activity,
-    ColonyState,
-    JobType,
-    ResourceKey,
-} from "../types";
+import {DAY_MS} from "../game/config";
+import {clearStorage, loadFromStorage, saveToStorage} from "../game/persistence";
+import * as rules from "../game/rules";
+import type {ColonyState, CraftItem, DestinationId, JobType} from "../types";
 import {ColonyContext, type ColonyContextValue} from "./ColonyContext";
 
-const initialState: ColonyState = {
-    day: 12,
-    resources: {
-        wood: 14,
-        stone: 9,
-        food: 18,
-        tools: 1,
-        weapons: 0
-    },
-    dwarves: [
-        {
-            id: "dwarf-1",
-            name: "Bromli Copperkeg",
-            title: "Hold Warden",
-            icon: "🧔🏻",
-            assignment: "mining",
-            status: "working",
-            specialty: "mining",
-            tool: false
-        },
-        {
-            id: "dwarf-2",
-            name: "Yrsa Flintbraid",
-            title: "Trail Scout",
-            icon: "🧔🏼‍♀️",
-            assignment: "woodcutting",
-            status: "working",
-            specialty: "woodcutting",
-            tool: false
-        },
-        {
-            id: "dwarf-3",
-            name: "Dori Ashmantle",
-            title: "Stone Singer",
-            icon: "🧔🏽",
-            assignment: null,
-            status: "idle",
-            tool: false
-        },
-    ],
-};
-
-const initialActivities: Activity[] = [
-    {
-        id: "welcome",
-        day: 12,
-        message: "The forge fires are lit. Stonehome wakes.",
-    },
-];
-
+/**
+ * Owns the single colony state. Every change goes through `commit`, which runs
+ * a pure rule against the *latest* state synchronously (via a ref). That means
+ * a double click, a late network response and the day timer all see the same
+ * up-to-date colony, with no stale closures.
+ */
 export function ColonyProvider({children}: { children: ReactNode }) {
-    const [colony, setColony] = useState(initialState);
+    const [colony, setColony] = useState<ColonyState>(() => loadFromStorage().state);
     const [paused, setPaused] = useState(false);
-    const [expeditionPending, setExpeditionPending] = useState(false);
-    const [activities, setActivities] = useState<Activity[]>(initialActivities);
+    const latest = useRef(colony);
 
-    // The hold falls once every dwarf has starved; the clock stays stopped until restart.
-    const gameOver = colony.dwarves.length === 0;
+    const commit = useCallback((rule: (state: ColonyState) => ColonyState) => {
+        const next = rule(latest.current);
+        if (next !== latest.current) {
+            latest.current = next;
+            setColony(next);
+        }
+        return next;
+    }, []);
 
+    const gameOver = rules.isGameOver(colony);
+
+    // Simulation clock: one day per DAY_MS while running.
     useEffect(() => {
         if (paused || gameOver) return;
-
-        const timer = window.setInterval(
-            () => {
-                setColony((current) => advanceDay(current));
-                setExpeditionPending(false);
-            },
-            8_000,
-        );
-
+        const timer = window.setInterval(() => commit(rules.advanceDay), DAY_MS);
         return () => window.clearInterval(timer);
-    }, [paused, gameOver]);
+    }, [paused, gameOver, commit]);
 
-    function restart() {
-        setColony(initialState);
-        setActivities(initialActivities);
-        setPaused(false);
-        setExpeditionPending(false);
-    }
+    // D5: persist every change.
+    useEffect(() => saveToStorage(colony), [colony]);
 
-    // Compare with the previous roster: dwarves only disappear by starving,
-    // and a smith whose job was cleared has finished forging.
-    const previousDwarves = useRef(colony.dwarves);
-    useEffect(() => {
-        const starved = previousDwarves.current.filter(
-            (dwarf) => !colony.dwarves.some((item) => item.id === dwarf.id),
-        );
-        const finished = previousDwarves.current.filter(
-            (dwarf) =>
-                dwarf.crafting &&
-                !colony.dwarves.find((item) => item.id === dwarf.id)?.crafting,
-        );
-        previousDwarves.current = colony.dwarves;
-        if (starved.length === 0 && finished.length === 0) return;
-
-        setActivities((current) =>
-            [
-                ...finished.map((dwarf) => ({
-                    id: crypto.randomUUID(),
-                    day: colony.day,
-                    message: `${dwarf.name} finished forging a ${dwarf.crafting === "tools" ? "tool" : "weapon"}.`,
-                    tone: "good" as const,
-                })),
-                ...starved.map((dwarf) => ({
-                    id: crypto.randomUUID(),
-                    day: colony.day,
-                    message: `${dwarf.name} starved and left Stonehome.`,
-                    tone: "warning" as const,
-                })),
-                ...current,
-            ].slice(0, 6),
-        );
-    }, [colony.dwarves, colony.day]);
-
-    function assignDwarf(id: string, assignment: JobType) {
-        setColony((current) => ({
-            ...current,
-            dwarves: current.dwarves.map((dwarf) =>
-                dwarf.id === id
-                    ? {
-                        ...dwarf,
-                        assignment,
-                        status: assignment ? "working" : "idle",
-                    }
-                    : dwarf,
-            ),
-        }));
-
-        const dwarf = colony.dwarves.find((item) => item.id === id);
-        setActivities((current) =>
-            [
-                {
-                    id: crypto.randomUUID(),
-                    day: colony.day,
-                    message: `${dwarf?.name ?? "A dwarf"} assigned to ${jobLabel(assignment)}.`,
-                },
-                ...current,
-            ].slice(0, 6),
-        );
-    }
-
-    function toggleTool(id: string) {
-        setColony((current) => {
-            const dwarf = current.dwarves.find((item) => item.id === id);
-            if (!dwarf || dwarf.status === "expedition") return current;
-            // Taking a tool needs one in the stores; returning one always works.
-            if (!dwarf.tool && current.resources.tools === 0) return current;
-
-            return {
-                ...current,
-                resources: {
-                    ...current.resources,
-                    tools: current.resources.tools + (dwarf.tool ? 1 : -1),
-                },
-                dwarves: current.dwarves.map((item) =>
-                    item.id === id ? {...item, tool: !item.tool} : item,
-                ),
-            };
-        });
-    }
-
-    function craftTool(smithId: string) {
-        const smith = colony.dwarves.find((dwarf) => dwarf.id === smithId);
-        if (!smith || smith.status === "expedition" || smith.status === "crafting") return;
-        if (colony.resources.wood < 3) {
-            setActivities((current) => [
-                {
-                    id: crypto.randomUUID(),
-                    day: colony.day,
-                    message: "The forge needs more timber.",
-                    tone: "warning" as const,
-                },
-                ...current,
-            ]);
-            return;
-        }
-
-        if (colony.resources.stone < 2) {
-            setActivities((current) => [
-                {
-                    id: crypto.randomUUID(),
-                    day: colony.day,
-                    message: "The forge needs more stone.",
-                    tone: "warning" as const,
-                },
-                ...current,
-            ]);
-            return;
-        }
-
-        setColony((current) => ({
-            ...current,
-            resources: {
-                ...current.resources,
-                wood: current.resources.wood - 3,
-                stone: current.resources.stone - 2,
-            },
-            // The tool is delivered by advanceDay at the end of the day.
-            dwarves: current.dwarves.map((dwarf) =>
-                dwarf.id === smithId
-                    ? {...dwarf, status: "crafting" as const, crafting: "tools" as const}
-                    : dwarf,
-            ),
-        }));
-        setActivities((current) =>
-            [
-                {
-                    id: crypto.randomUUID(),
-                    day: colony.day,
-                    message: `${smith.name} starts forging a tool. Ready at dawn.`,
-                },
-                ...current,
-            ].slice(0, 6),
-        );
-    }
-
-    function craftWeapon(smithId: string) {
-        const smith = colony.dwarves.find((dwarf) => dwarf.id === smithId);
-        if (!smith || smith.status === "expedition" || smith.status === "crafting") return;
-        if (colony.resources.wood < 2) {
-            setActivities((current) => [
-                {
-                    id: crypto.randomUUID(),
-                    day: colony.day,
-                    message: "The forge needs more timber.",
-                    tone: "warning" as const,
-                },
-                ...current,
-            ]);
-            return;
-        }
-        if (colony.resources.stone < 3) {
-            setActivities((current) => [
-                {
-                    id: crypto.randomUUID(),
-                    day: colony.day,
-                    message: "The forge needs more stone.",
-                    tone: "warning" as const,
-                },
-                ...current,
-            ]);
-            return;
-        }
-        setColony((current) => ({
-            ...current,
-            resources: {
-                ...current.resources,
-                wood: current.resources.wood - 2,
-                stone: current.resources.stone - 3,
-            },
-            // The weapon is delivered by advanceDay at the end of the day.
-            dwarves: current.dwarves.map((dwarf) =>
-                dwarf.id === smithId
-                    ? {...dwarf, status: "crafting" as const, crafting: "weapons" as const}
-                    : dwarf,
-            ),
-        }));
-        setActivities((current) =>
-            [
-                {
-                    id: crypto.randomUUID(),
-                    day: colony.day,
-                    message: `${smith.name} starts forging a weapon. Ready at dawn.`,
-                },
-                ...current,
-            ].slice(0, 6),
-        );
-    }
-
-    async function sendExpedition(dwarfId: string, destination: string) {
-        const dwarf = colony.dwarves.find((item) => item.id === dwarfId);
-        if (!dwarf) return;
-        setExpeditionPending(true);
-        setColony((current) => ({
-            ...current,
-            dwarves: current.dwarves.map((item) =>
-                item.id === dwarf.id ? {...item, status: "expedition"} : item,
-            ),
-        }));
-        setActivities((current) => [
-            {
-                id: crypto.randomUUID(),
-                day: colony.day,
-                message: `${dwarf.name} departed for ${destination.replace("-", " ")}.`,
-            },
-            ...current,
-        ]);
-
+    const sendExpedition = useCallback(async (residentId: string, destination: DestinationId) => {
+        const journeyId = crypto.randomUUID();
+        const after = commit((state) => rules.departExpedition(state, residentId, destination, journeyId));
+        // Rejected departure (busy, unknown, game over): no request is sent.
+        if (!rules.isJourneyActive(after, journeyId)) return;
         try {
-            const result = await beginExpedition(dwarf.id, destination);
-
-            setColony((current) => ({
-                ...current,
-                resources: Object.entries(result.rewards).reduce(
-                    (all, [key, amount]) => ({
-                        ...all,
-                        [key]: all[key as ResourceKey] + (amount ?? 0),
-                    }),
-                    current.resources,
-                ),
-            }));
-            setActivities((current) =>
-                [
-                    {
-                        id: result.expeditionId,
-                        day: colony.day,
-                        message: result.message,
-                        tone: "good" as const,
-                    },
-                    ...current,
-                ].slice(0, 6),
-            );
+            const result = await beginExpedition(residentId, destination);
+            commit((state) => rules.completeExpedition(state, journeyId, result));
         } catch (error) {
-            setActivities((current) =>
-                [
-                    {
-                        id: crypto.randomUUID(),
-                        day: colony.day,
-                        message:
-                            error instanceof Error
-                                ? error.message
-                                : "The expedition was lost from view.",
-                        tone: "warning" as const,
-                    },
-                    ...current,
-                ].slice(0, 6),
-            );
+            const reason = error instanceof Error ? error.message : "The expedition was lost from view.";
+            commit((state) => rules.failExpedition(state, journeyId, reason));
         }
-    }
+    }, [commit]);
 
-
-    const value: ColonyContextValue = {
+    const value: ColonyContextValue = useMemo(() => ({
         colony,
         paused,
-        activities,
-        expeditionPending,
         gameOver,
-        togglePaused: () => setPaused((value) => !value),
-        restart,
-        assignDwarf,
-        toggleTool,
-        craftTool,
-        craftWeapon,
+        forecast: rules.forecast(colony),
+        togglePaused: () => setPaused((current) => !current),
+        restart: () => {
+            clearStorage();
+            commit(() => rules.createInitialState());
+            setPaused(false);
+        },
+        assign: (id: string, job: JobType) => commit((state) => rules.assign(state, id, job)),
+        toggleTool: (id: string) => commit((state) => rules.toggleTool(state, id)),
+        startCraft: (smithId: string, item: CraftItem) => commit((state) => rules.startCraft(state, smithId, item)),
         sendExpedition,
-    };
+        dismissRaid: () => commit(rules.dismissRaid),
+    }), [colony, paused, gameOver, commit, sendExpedition]);
 
     return <ColonyContext value={value}>{children}</ColonyContext>;
 }

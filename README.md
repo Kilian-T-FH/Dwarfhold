@@ -53,6 +53,7 @@ The starter destinations:
 | Crystal Cave | 8 stone and 1 tool |
 | The Old Mine | 12 stone and 2 wood |
 | Blocked Pass | A predictable failed expedition |
+| Howling Gulch | 6 wood and 6 food, then a gnoll raid on Stonehome (D7) |
 
 The short delay is deliberate, so that expedition behavior provides a realistic place to reason about promises, loading state, failures, and consistency between worker and resource state.
 
@@ -99,14 +100,15 @@ Destinations `crystal-cave` and `old-mine` have rewards. `blocked-pass` is the p
 ## Project orientation
 
 - `src/App.tsx` defines the colony and forge routes.
-- `src/state/ColonyProvider.tsx` owns shared colony state, the simulation timer, and game actions.
+- `src/game/config.ts` holds every tunable rule: species, production, recipes, destinations, raid threshold.
+- `src/game/rules.ts` contains all game rules as pure functions (daily tick, assignment, tools, forging, expeditions, recruitment, raids).
+- `src/game/persistence.ts` saves and validates the colony in localStorage (D5).
+- `src/state/ColonyProvider.tsx` owns the single colony state, the day timer and the expedition requests.
 - `src/state/ColonyContext.ts` exposes the shared state through `useColony`.
 - `src/pages/` contains the shared layout, colony page, and forge page.
-- `src/simulation.ts` contains the production table and daily simulation transition.
-- `src/types.ts` defines workers, jobs, statuses, resources, and activity records.
-- `src/api.ts` contains the expedition HTTP request.
+- `src/types.ts` defines residents, tasks, resources, raid reports and activity records.
+- `src/api.ts` contains the expedition HTTP request (with a 10-second timeout).
 - `src/components/` contains the roster, resource display, and shared chronicle.
 - `server/index.js` implements the local expedition service.
-
 
 See [docs/API.md](docs/API.md) for contract details.

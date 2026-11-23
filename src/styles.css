@@ -21,3 +21,20 @@
 .forge .forge-smith{margin-top:6px;color:#d8c8ae}
 .forge button:disabled{opacity:.45;cursor:not-allowed}
 .portrait i.crafting{background:#c18b3f}
+
+.species-badge{margin-left:8px;font:600 9px Barlow Condensed;letter-spacing:.12em;text-transform:uppercase;font-style:normal;padding:2px 5px;border:1px solid #6b5536;color:#c9a46b;vertical-align:middle}
+.species-badge.goblin{border-color:#5f8a4a;color:#9fd17f}
+.dwarf.goblin .portrait{background:linear-gradient(145deg,#2f4224,#17200f);border-color:#5f8a4a}
+.dwarf .busy-note,.forge-ability{color:#c9a46b;margin-top:6px}
+.rule-note{font:12px Barlow Condensed;line-height:1.4;color:#a08a6c;margin:0;padding:8px 14px 12px}
+.rule-note.danger{color:#e08a6c;font-weight:600}
+.destination-hint{font:11px Barlow Condensed;color:#c9a46b;margin:0 13px 6px}
+.travellers{margin:4px 13px;padding-left:16px;font:12px Barlow Condensed;color:#d29a46}
+.raid-report{border-color:#d87f63}
+.raid-report.defended{border-color:#75b66e}
+.raid-report header button{background:transparent;color:#b9a589;border:1px solid #554634;padding:4px 10px;cursor:pointer}
+.raid-report p{font:13px Barlow Condensed;color:#d8c8ae;margin:10px 14px}
+.forge{flex-direction:column;gap:16px}
+.recipe-card{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;border-top:1px solid #3b3023;padding-top:14px}
+.recipe-card h3{font:700 16px Almendra;margin:0 0 3px}
+.forge-hint{width:100%;color:#d87f63 !important}

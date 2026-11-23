@@ -45,7 +45,7 @@ export function Layout() {
 
       <footer>
         <span>🔥 Forge: burning</span>
-        <span>Next deep day in ~8 seconds</span>
+        <span>Next deep day in ~8 seconds · progress saves automatically</span>
         <span>
           {gameOver
             ? "☠ Stonehome has fallen"
@@ -57,7 +57,7 @@ export function Layout() {
 
       {gameOver && (
         <div className="snackbar" role="alert">
-          <span>Game over: every dwarf has starved. Stonehome has fallen.</span>
+          <span>Game over: every resident has gone hungry and left. Stonehome has fallen.</span>
           <button onClick={restart}>Restart</button>
         </div>
       )}

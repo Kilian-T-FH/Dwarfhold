@@ -8,6 +8,12 @@ let expeditionNumber = 16;
 const outcomes = {
   "crystal-cave": { rewards: { stone: 8, tools: 1 }, message: "The scout found a crystal seam and an abandoned mason's tool." },
   "old-mine": { rewards: { stone: 12, wood: 2 }, message: "The old mine still holds good stone and usable supports." },
+  // D7: success here also sends a hostile force after the traveller.
+  "howling-gulch": {
+    rewards: { wood: 6, food: 6 },
+    message: "The gulch gave up timber and game, but howls followed the scout down the valley.",
+    hostile: { name: "gnoll war-band" },
+  },
 };
 
 app.use(cors()); app.use(express.json());
