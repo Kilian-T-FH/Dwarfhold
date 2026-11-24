@@ -13,11 +13,11 @@
 |------|-------------:|
 | D1   | Kilian Teufl |
 | D2   | Kilian Teufl |
-| D3   |          TBA |
-| D4   |          TBA |
-| D5   |          TBA |
-| D6   |          TBA |
-| D7   |          TBA |
+| D3   | Kilian Teufl |
+| D4   | Robert Resch |
+| D5   | Robert Resch |
+| D6   | Robert Resch |
+| D7   | Robert Resch |
 
 ## Important Decisions
 ### D1
@@ -69,4 +69,10 @@ known or thought of. Bug-fixing and finding inconsistencies in the code.
 Also used it for visual design. Additionally used claude for debugging, quality control and code formatting/refactoring.
 
 ## Final Reflection
-### TODO
+
+Some unclear instructions in reference to the code. Code clearly structured and easy to read and understand.
+After having analyzed the code, working on it went mostly smoothly with a few problems with progression and the
+state of the game. AI usage was helpful in optimizing the developer-written code and add css 
+(the styles.css file is not structured well). Cooperation worked smoothly due to time difference in deveoplment
+leading to no possible conflicts when merging. Scale of the project was reasonable for the the amount of documentation
+provided and allowed an easy start into working.
