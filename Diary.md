@@ -6,7 +6,6 @@
 ### Organization
  - Git branch for each Task (D1 - D7)
  - Time-deferred development
- - 
 ### Parts
 
 | Task |    Developer |
